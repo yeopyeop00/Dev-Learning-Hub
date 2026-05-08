@@ -1,9 +1,9 @@
 # Dev Learning Hub - Analysis
 
+![Dev Learning Hub Cover](Analysis_1.jpg)
+
 **22112074 이재엽**  
 dlwoduq0@naver.com
-
-![Dev Learning Hub Cover](Analysis_1.jpg)
 
 ## Revision History
 
@@ -849,7 +849,7 @@ dlwoduq0@naver.com
 
 ![Todo List View](Analysis_10.jpg)
 
-To-do list 기능을 사용하고싶다면 우측 레이아웃의 Todo 버튼을 클릭함으로써 사용할 수 있다. 추가 같은 경우에는 할 일을 입력하고 추가버튼을 클릭할 시 아래의 To-do list에 반영이 되고 시간표와 마찬가지로 우측의 휴지통 버튼을 눌러 할 일을 삭제할 수 있다. 기본적으로 완료할 할 일은 좌측의 체크박크스를 클릭함으로써 상태를 바꿀 수 있다.
+To-do list 기능을 사용하고싶다면 우측 레이아웃의 Todo 버튼을 클릭함으로써 사용할 수 있다. 추가 같은 경우에는 할 일을 입력하고 추가버튼을 클릭할 시 아래의 To-do list에 반영이 되고 시간표와 마찬가지로 우측의 휴지통 버튼을 눌러 할 일을 삭제할 수 있다. 기본적으로 완료할 할 일은 좌측의 체크박스를 클릭함으로써 상태를 바꿀 수 있다.
 
 ---
 
