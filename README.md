@@ -6,8 +6,9 @@
 
 ## Project Documentation
 상세한 기획 의도와 시스템 설계 내용은 아래 문서를 참조해 주세요.
-* [상세 기획안 바로가기 (Conceptualization)](./docs/Conceptualization/Conceptualization_[22112074_이재엽].md)
-* [상세 기획안 바로가기 (Analysis)](./docs/Analysis/Analysis_[22112074_이재엽].md)
+* [상세 기획안 (Conceptualization)](./docs/Conceptualization/Conceptualization_[22112074_이재엽].md)
+* [요구사항 분석서 (Analysis)](./docs/Analysis/Analysis_[22112074_이재엽].md)
+* [설계서 (Design)](./docs/Design/Design_[22112074_이재엽].md)
 
 ## Tech Stack
 * **Frontend:** React
