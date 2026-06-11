@@ -8,7 +8,9 @@ import com.devlearninghub.backend.entity.TodoStatus;
 import com.devlearninghub.backend.entity.User;
 import com.devlearninghub.backend.repository.TodoItemRepository;
 import com.devlearninghub.backend.repository.UserRepository;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
+import org.springframework.web.server.ResponseStatusException;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -38,10 +40,16 @@ public class TodoService {
         item.setUser(user);
         item.setContent(request.getContent());
         item.setCategory(request.getCategory());
-        item.setPriority(Integer.parseInt(request.getPriority()));
         item.setStatus(TodoStatus.PENDING);
         item.setCreatedAt(LocalDateTime.now());
 
+        return new TodoResponse(todoItemRepository.save(item));
+    }
+
+    public TodoResponse toggleStatus(Long id) {
+        TodoItem item = todoItemRepository.findById(id)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Todo not found"));
+        item.setStatus(item.getStatus() == TodoStatus.PENDING ? TodoStatus.DONE : TodoStatus.PENDING);
         return new TodoResponse(todoItemRepository.save(item));
     }
 

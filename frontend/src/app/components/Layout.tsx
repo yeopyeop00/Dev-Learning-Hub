@@ -1,8 +1,9 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { Link, Outlet, useLocation } from "react-router";
 import { Calendar, CheckSquare, Code2, Github, Clock, LayoutDashboard, RefreshCw, LogOut, Settings, X, User, Camera } from "lucide-react";
 import { LoginForm } from "./LoginForm";
 import { SignupForm } from "./SignupForm";
+import { logout as apiLogout, setupGithub, syncAll, getProfile, updateNickname } from "../../api";
 
 export interface GithubConfig {
   username: string;
@@ -16,7 +17,7 @@ export interface UserProfile {
 
 export function Layout() {
   const location = useLocation();
-  const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [isLoggedIn, setIsLoggedIn] = useState(() => !!localStorage.getItem("userId"));
   const [showLoginForm, setShowLoginForm] = useState(false);
   const [showSignupForm, setShowSignupForm] = useState(false);
   const [showGithubSettings, setShowGithubSettings] = useState(false);
@@ -37,24 +38,40 @@ export function Layout() {
     { path: "/calendar", label: "캘린더", icon: Calendar },
   ];
 
+  useEffect(() => {
+    if (!isLoggedIn) return;
+    getProfile()
+      .then((p) => {
+        setProfile({ nickname: p.nickname ?? "사용자", avatarUrl: p.profileImagePath });
+      })
+      .catch(console.error);
+  }, [isLoggedIn]);
+
   const handleLogin = () => {
     setIsLoggedIn(true);
     setShowLoginForm(false);
   };
 
   const handleSignup = () => {
-    setIsLoggedIn(true);
     setShowSignupForm(false);
+    setShowLoginForm(true);
   };
 
   const handleSync = async () => {
     setIsSyncing(true);
-    await new Promise((r) => setTimeout(r, 1200));
-    setIsSyncing(false);
-    alert("동기화가 완료되었습니다!");
+    try {
+      await syncAll();
+      alert("동기화가 완료되었습니다!");
+    } catch (err) {
+      console.error(err);
+      alert("동기화에 실패했습니다.");
+    } finally {
+      setIsSyncing(false);
+    }
   };
 
   const handleLogout = () => {
+    apiLogout();
     setIsLoggedIn(false);
     setGithubConfig(null);
     setSettingsForm({ username: "", programmersRepo: "" });
@@ -75,10 +92,15 @@ export function Layout() {
     reader.readAsDataURL(file);
   };
 
-  const handleSaveProfile = () => {
+  const handleSaveProfile = async () => {
     if (!profileForm.nickname.trim()) return;
-    setProfile({ nickname: profileForm.nickname.trim(), avatarUrl: profileForm.avatarUrl });
-    setShowProfileEdit(false);
+    try {
+      await updateNickname(profileForm.nickname.trim());
+      setProfile({ nickname: profileForm.nickname.trim(), avatarUrl: profileForm.avatarUrl });
+      setShowProfileEdit(false);
+    } catch (err) {
+      console.error(err);
+    }
   };
 
   const handleOpenGithubSettings = () => {
@@ -88,10 +110,15 @@ export function Layout() {
     setShowGithubSettings(true);
   };
 
-  const handleSaveGithubSettings = () => {
+  const handleSaveGithubSettings = async () => {
     if (!settingsForm.username.trim() || !settingsForm.programmersRepo.trim()) return;
-    setGithubConfig({ username: settingsForm.username.trim(), programmersRepo: settingsForm.programmersRepo.trim() });
-    setShowGithubSettings(false);
+    try {
+      await setupGithub(settingsForm.username.trim(), settingsForm.programmersRepo.trim());
+      setGithubConfig({ username: settingsForm.username.trim(), programmersRepo: settingsForm.programmersRepo.trim() });
+      setShowGithubSettings(false);
+    } catch (err) {
+      console.error(err);
+    }
   };
 
   return (

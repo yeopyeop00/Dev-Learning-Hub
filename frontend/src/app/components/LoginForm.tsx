@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { X } from "lucide-react";
+import { login } from "../../api";
 
 interface LoginFormProps {
   onClose: () => void;
@@ -9,10 +10,22 @@ interface LoginFormProps {
 export function LoginForm({ onClose, onLogin }: LoginFormProps) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState("");
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    onLogin();
+    setError("");
+    setIsLoading(true);
+    try {
+      await login(email, password);
+      onLogin();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "로그인에 실패했습니다.");
+      console.error(err);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
@@ -26,6 +39,10 @@ export function LoginForm({ onClose, onLogin }: LoginFormProps) {
         </button>
 
         <h2 className="text-xl mb-6">로그인</h2>
+
+        {error && (
+          <p className="text-sm text-destructive mb-4">{error}</p>
+        )}
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
@@ -54,9 +71,10 @@ export function LoginForm({ onClose, onLogin }: LoginFormProps) {
 
           <button
             type="submit"
-            className="w-full bg-primary text-primary-foreground py-2 rounded-lg hover:bg-primary/90 transition-colors"
+            disabled={isLoading}
+            className="w-full bg-primary text-primary-foreground py-2 rounded-lg hover:bg-primary/90 transition-colors disabled:opacity-70"
           >
-            로그인
+            {isLoading ? "로그인 중..." : "로그인"}
           </button>
         </form>
       </div>

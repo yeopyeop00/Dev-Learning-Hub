@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { X } from "lucide-react";
+import { signup } from "../../api";
 
 interface SignupFormProps {
   onClose: () => void;
@@ -10,11 +11,25 @@ export function SignupForm({ onClose, onSignup }: SignupFormProps) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState("");
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (password === confirmPassword) {
+    if (password !== confirmPassword) {
+      setError("비밀번호가 일치하지 않습니다.");
+      return;
+    }
+    setError("");
+    setIsLoading(true);
+    try {
+      await signup(email, password, confirmPassword);
       onSignup();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "회원가입에 실패했습니다.");
+      console.error(err);
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -29,6 +44,10 @@ export function SignupForm({ onClose, onSignup }: SignupFormProps) {
         </button>
 
         <h2 className="text-xl mb-6">회원가입</h2>
+
+        {error && (
+          <p className="text-sm text-destructive mb-4">{error}</p>
+        )}
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
@@ -69,9 +88,10 @@ export function SignupForm({ onClose, onSignup }: SignupFormProps) {
 
           <button
             type="submit"
-            className="w-full bg-primary text-primary-foreground py-2 rounded-lg hover:bg-primary/90 transition-colors"
+            disabled={isLoading}
+            className="w-full bg-primary text-primary-foreground py-2 rounded-lg hover:bg-primary/90 transition-colors disabled:opacity-70"
           >
-            회원가입
+            {isLoading ? "처리 중..." : "회원가입"}
           </button>
         </form>
       </div>
