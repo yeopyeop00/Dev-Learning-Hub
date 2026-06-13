@@ -22,27 +22,27 @@ public class AuthController {
 
     @PostMapping("/signup")
     public ResponseEntity<AuthResponse> signup(@RequestBody SignupRequest request) {
-        authService.signup(request.getEmail(), request.getPwd(), request.getPwdConfirm());
+        User user = authService.signup(request.getEmail(), request.getPwd(), request.getPwdConfirm());
         return ResponseEntity.status(HttpStatus.CREATED)
-                .body(new AuthResponse(true, "회원가입이 완료되었습니다.", null, null));
+                .body(new AuthResponse(true, "회원가입이 완료되었습니다.", null, user.getId(), user.getNickname()));
     }
 
     @PostMapping("/login")
     public ResponseEntity<AuthResponse> login(@RequestBody LoginRequest request) {
         User user = authService.login(request.getEmail(), request.getPwd());
         String token = UUID.randomUUID().toString();
-        return ResponseEntity.ok(new AuthResponse(true, "로그인 성공", token, user.getId()));
+        return ResponseEntity.ok(new AuthResponse(true, "로그인 성공", token, user.getId(), user.getNickname()));
     }
 
     @PostMapping("/logout")
     public ResponseEntity<AuthResponse> logout() {
         authService.logout();
-        return ResponseEntity.ok(new AuthResponse(true, "로그아웃 되었습니다.", null, null));
+        return ResponseEntity.ok(new AuthResponse(true, "로그아웃 되었습니다.", null, null, null));
     }
 
     @ExceptionHandler(ResponseStatusException.class)
     public ResponseEntity<AuthResponse> handleResponseStatusException(ResponseStatusException e) {
         return ResponseEntity.status(e.getStatusCode())
-                .body(new AuthResponse(false, e.getReason(), null, null));
+                .body(new AuthResponse(false, e.getReason(), null, null, null));
     }
 }

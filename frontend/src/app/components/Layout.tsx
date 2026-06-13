@@ -25,7 +25,10 @@ export function Layout() {
   const [githubConfig, setGithubConfig] = useState<GithubConfig | null>(null);
   const [settingsForm, setSettingsForm] = useState({ username: "", programmersRepo: "" });
   const [isSyncing, setIsSyncing] = useState(false);
-  const [profile, setProfile] = useState<UserProfile>({ nickname: "사용자", avatarUrl: null });
+  const [profile, setProfile] = useState<UserProfile>(() => ({
+    nickname: localStorage.getItem("nickname") ?? "사용자",
+    avatarUrl: localStorage.getItem("profileImage"),
+  }));
   const [profileForm, setProfileForm] = useState({ nickname: "", avatarUrl: null as string | null });
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -42,7 +45,10 @@ export function Layout() {
     if (!isLoggedIn) return;
     getProfile()
       .then((p) => {
-        setProfile({ nickname: p.nickname ?? "사용자", avatarUrl: p.profileImagePath });
+        setProfile({
+          nickname: p.nickname ?? "사용자",
+          avatarUrl: p.profileImagePath ?? localStorage.getItem("profileImage"),
+        });
       })
       .catch(console.error);
   }, [isLoggedIn]);
@@ -53,8 +59,8 @@ export function Layout() {
   };
 
   const handleSignup = () => {
+    setIsLoggedIn(true);
     setShowSignupForm(false);
-    setShowLoginForm(true);
   };
 
   const handleSync = async () => {
@@ -75,6 +81,7 @@ export function Layout() {
     setIsLoggedIn(false);
     setGithubConfig(null);
     setSettingsForm({ username: "", programmersRepo: "" });
+    setProfile({ nickname: "사용자", avatarUrl: null });
   };
 
   const handleOpenProfileEdit = () => {
@@ -95,8 +102,15 @@ export function Layout() {
   const handleSaveProfile = async () => {
     if (!profileForm.nickname.trim()) return;
     try {
-      await updateNickname(profileForm.nickname.trim());
-      setProfile({ nickname: profileForm.nickname.trim(), avatarUrl: profileForm.avatarUrl });
+      const data = await updateNickname(profileForm.nickname.trim());
+      const savedNickname = data.nickname ?? profileForm.nickname.trim();
+      localStorage.setItem("nickname", savedNickname);
+      if (profileForm.avatarUrl) {
+        localStorage.setItem("profileImage", profileForm.avatarUrl);
+      } else {
+        localStorage.removeItem("profileImage");
+      }
+      setProfile({ nickname: savedNickname, avatarUrl: profileForm.avatarUrl });
       setShowProfileEdit(false);
     } catch (err) {
       console.error(err);

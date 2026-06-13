@@ -120,6 +120,22 @@ export function GithubStats() {
 
       {isLoading ? (
         <p className="text-muted-foreground text-center py-8">불러오는 중...</p>
+      ) : stat === null ? (
+        <div className="flex flex-col items-center justify-center h-[400px] border border-border rounded-lg bg-card/50 gap-4">
+          <div className="w-14 h-14 rounded-2xl bg-muted flex items-center justify-center">
+            <Github className="w-7 h-7 text-muted-foreground" />
+          </div>
+          <div className="text-center">
+            <p className="font-medium">GitHub 계정을 먼저 설정해주세요</p>
+            <p className="text-sm text-muted-foreground mt-1">
+              우측 상단의{" "}
+              <span className="inline-flex items-center gap-1 font-medium text-foreground">
+                <Settings className="w-3 h-3" />깃허브 설정
+              </span>{" "}
+              버튼을 눌러 계정을 연결하고 동기화를 실행하세요
+            </p>
+          </div>
+        </div>
       ) : (
         <>
           {/* Stats Cards */}

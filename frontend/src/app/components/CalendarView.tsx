@@ -3,11 +3,13 @@ import { useOutletContext } from "react-router";
 import { ChevronLeft, ChevronRight, Plus, X, Trash2 } from "lucide-react";
 import { getEvents, addEvent, deleteEvent, type CalendarResponse } from "../../api";
 
+type EventTypeKey = "CLASS" | "ASSIGNMENT" | "EXAM" | "STUDY" | "PERSONAL";
+
 interface Event {
   id: number;
   date: string;
   title: string;
-  type: "class" | "assignment" | "exam" | "study";
+  type: EventTypeKey;
   time?: string;
 }
 
@@ -15,21 +17,12 @@ interface OutletContext {
   isLoggedIn: boolean;
 }
 
-function toFrontendType(t: CalendarResponse["type"]): Event["type"] {
-  switch (t) {
-    case "CLASS": return "class";
-    case "ASSIGNMENT": return "assignment";
-    case "EXAM": return "exam";
-    default: return "study";
-  }
-}
-
 function fromResponse(r: CalendarResponse): Event {
   return {
     id: r.id,
     date: r.date,
     title: r.title,
-    type: toFrontendType(r.type),
+    type: r.type,
     time: r.time ? r.time.substring(0, 5) : undefined,
   };
 }
@@ -40,7 +33,7 @@ export function CalendarView() {
   const [events, setEvents] = useState<Event[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [showAddModal, setShowAddModal] = useState(false);
-  const [newEvent, setNewEvent] = useState({ date: "", title: "", type: "class" as Event["type"], time: "" });
+  const [newEvent, setNewEvent] = useState({ date: "", title: "", type: "CLASS" as EventTypeKey, time: "" });
 
   useEffect(() => {
     if (!isLoggedIn) return;
@@ -75,20 +68,22 @@ export function CalendarView() {
 
   const getEventColor = (type: string) => {
     switch (type) {
-      case "class": return "bg-blue-500";
-      case "assignment": return "bg-orange-500";
-      case "exam": return "bg-red-500";
-      case "study": return "bg-green-500";
+      case "CLASS": return "bg-blue-500";
+      case "ASSIGNMENT": return "bg-orange-500";
+      case "EXAM": return "bg-red-500";
+      case "STUDY": return "bg-green-500";
+      case "PERSONAL": return "bg-purple-500";
       default: return "bg-gray-500";
     }
   };
 
   const getEventTypeLabel = (type: string) => {
     switch (type) {
-      case "class": return "수업";
-      case "assignment": return "과제";
-      case "exam": return "시험";
-      case "study": return "학습";
+      case "CLASS": return "수업";
+      case "ASSIGNMENT": return "과제";
+      case "EXAM": return "시험";
+      case "STUDY": return "학습";
+      case "PERSONAL": return "개인";
       default: return "";
     }
   };
@@ -104,7 +99,7 @@ export function CalendarView() {
     try {
       const item = await addEvent(newEvent.title, newEvent.date, newEvent.time, newEvent.type);
       setEvents((prev) => [...prev, fromResponse(item)]);
-      setNewEvent({ date: "", title: "", type: "class", time: "" });
+      setNewEvent({ date: "", title: "", type: "CLASS", time: "" });
       setShowAddModal(false);
     } catch (err) {
       console.error(err);
@@ -243,7 +238,7 @@ export function CalendarView() {
       {/* Legend */}
       <div className="bg-card rounded-lg border border-border p-6">
         <h3 className="mb-4">범례</h3>
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
           <div className="flex items-center gap-2">
             <div className="w-4 h-4 rounded bg-blue-500"></div>
             <span className="text-sm">수업</span>
@@ -259,6 +254,10 @@ export function CalendarView() {
           <div className="flex items-center gap-2">
             <div className="w-4 h-4 rounded bg-green-500"></div>
             <span className="text-sm">학습</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <div className="w-4 h-4 rounded bg-purple-500"></div>
+            <span className="text-sm">개인</span>
           </div>
         </div>
       </div>
@@ -310,13 +309,14 @@ export function CalendarView() {
                 <label className="block text-sm font-medium mb-2">유형</label>
                 <select
                   value={newEvent.type}
-                  onChange={(e) => setNewEvent({ ...newEvent, type: e.target.value as Event["type"] })}
+                  onChange={(e) => setNewEvent({ ...newEvent, type: e.target.value as EventTypeKey })}
                   className="w-full px-3 py-2 bg-background border border-border rounded-lg"
                 >
-                  <option value="class">수업</option>
-                  <option value="assignment">과제</option>
-                  <option value="exam">시험</option>
-                  <option value="study">학습</option>
+                  <option value="CLASS">수업</option>
+                  <option value="ASSIGNMENT">과제</option>
+                  <option value="EXAM">시험</option>
+                  <option value="STUDY">학습</option>
+                  <option value="PERSONAL">개인</option>
                 </select>
               </div>
 

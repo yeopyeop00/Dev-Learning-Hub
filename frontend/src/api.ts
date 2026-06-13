@@ -25,23 +25,29 @@ async function request<T>(path: string, options?: RequestInit): Promise<T> {
 // Auth
 
 export async function signup(email: string, password: string, passwordConfirm: string) {
-  return request("/api/auth/signup", {
-    method: "POST",
-    body: JSON.stringify({ email, pwd: password, pwdConfirm: passwordConfirm }),
-  });
-}
-
-export async function login(email: string, password: string) {
-  const data = await request<{ success: boolean; message: string; token: string; userId: number }>(
-    "/api/auth/login",
-    { method: "POST", body: JSON.stringify({ email, pwd: password }) }
+  const data = await request<{ success: boolean; message: string; token: string | null; userId: number }>(
+    "/api/auth/signup",
+    { method: "POST", body: JSON.stringify({ email, pwd: password, pwdConfirm: passwordConfirm }) }
   );
   localStorage.setItem("userId", String(data.userId));
   return data;
 }
 
+export async function login(email: string, password: string) {
+  const data = await request<{ success: boolean; message: string; token: string; userId: number; nickname: string | null }>(
+    "/api/auth/login",
+    { method: "POST", body: JSON.stringify({ email, pwd: password }) }
+  );
+  localStorage.setItem("userId", String(data.userId));
+  if (data.nickname) {
+    localStorage.setItem("nickname", data.nickname);
+  }
+  return data;
+}
+
 export function logout() {
   localStorage.removeItem("userId");
+  localStorage.removeItem("nickname");
 }
 
 // Todo
@@ -49,6 +55,11 @@ export function logout() {
 export async function getTodos() {
   const userId = getUserId();
   return request<TodoResponse[]>(`/api/todos?userId=${userId}`);
+}
+
+export async function getTodoSummary() {
+  const userId = getUserId();
+  return request<TodoSummaryResponse>(`/api/todos/summary?userId=${userId}`);
 }
 
 export async function addTodo(content: string, category: string) {
@@ -92,6 +103,11 @@ export async function deleteEvent(id: number) {
 export async function getTimetable() {
   const userId = getUserId();
   return request<TimetableResponse[]>(`/api/timetable?userId=${userId}`);
+}
+
+export async function getTodaySchedule() {
+  const userId = getUserId();
+  return request<TimetableResponse[]>(`/api/timetable/today?userId=${userId}`);
 }
 
 export async function addEntry(
@@ -156,6 +172,11 @@ export async function syncAll() {
 }
 
 // Response types
+
+export interface TodoSummaryResponse {
+  total: number;
+  completed: number;
+}
 
 export interface TodoResponse {
   id: number;
