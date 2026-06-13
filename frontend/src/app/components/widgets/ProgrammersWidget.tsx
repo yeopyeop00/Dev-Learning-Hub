@@ -1,6 +1,34 @@
+import { useEffect, useState } from "react";
 import { Code2, Settings } from "lucide-react";
+import { getProgrammersStat, type ProgrammersStatResponse } from "../../../api";
+
+interface LevelEntry { level: string; count: number; color: string; }
+
+function getLevelColor(level: string) {
+  switch (level) {
+    case "Lv.0": return "bg-gray-400/10 text-gray-600";
+    case "Lv.1": return "bg-green-400/10 text-green-600";
+    case "Lv.2": return "bg-blue-400/10 text-blue-600";
+    case "Lv.3": return "bg-purple-500/10 text-purple-600";
+    case "Lv.4": return "bg-orange-500/10 text-orange-600";
+    case "Lv.5": return "bg-red-500/10 text-red-600";
+    default: return "bg-gray-400/10 text-gray-600";
+  }
+}
 
 export function ProgrammersWidget({ hasGithubConfig }: { hasGithubConfig: boolean }) {
+  const [stat, setStat] = useState<ProgrammersStatResponse | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
+
+  useEffect(() => {
+    if (!hasGithubConfig) return;
+    setIsLoading(true);
+    getProgrammersStat()
+      .then(setStat)
+      .catch(console.error)
+      .finally(() => setIsLoading(false));
+  }, [hasGithubConfig]);
+
   if (!hasGithubConfig) {
     return (
       <div className="bg-card rounded-lg border border-border p-6 flex flex-col items-center justify-center gap-3 min-h-[200px]">
@@ -15,31 +43,11 @@ export function ProgrammersWidget({ hasGithubConfig }: { hasGithubConfig: boolea
     );
   }
 
-  const solvedProblems = [
-    { date: "2026-05-05", count: 2, level: "Lv.2" },
-    { date: "2026-05-04", count: 1, level: "Lv.2" },
-    { date: "2026-05-03", count: 1, level: "Lv.2" },
-    { date: "2026-05-02", count: 3, level: "Lv.1" },
-  ];
+  const levelDistribution: LevelEntry[] = stat?.levelDistribution
+    ? (() => { try { return JSON.parse(stat.levelDistribution); } catch { return []; } })()
+    : [];
 
-  const getLevelColor = (level: string) => {
-    switch (level) {
-      case "Lv.0":
-        return "bg-gray-400/10 text-gray-600";
-      case "Lv.1":
-        return "bg-green-400/10 text-green-600";
-      case "Lv.2":
-        return "bg-blue-400/10 text-blue-600";
-      case "Lv.3":
-        return "bg-purple-500/10 text-purple-600";
-      case "Lv.4":
-        return "bg-orange-500/10 text-orange-600";
-      case "Lv.5":
-        return "bg-red-500/10 text-red-600";
-      default:
-        return "bg-gray-400/10 text-gray-600";
-    }
-  };
+  const activeLevels = levelDistribution.filter((l) => l.count > 0);
 
   return (
     <div className="bg-card rounded-lg border border-border p-6">
@@ -47,19 +55,24 @@ export function ProgrammersWidget({ hasGithubConfig }: { hasGithubConfig: boolea
         <Code2 className="w-5 h-5 text-primary" />
         <h3>프로그래머스 풀이 현황</h3>
       </div>
-      <div className="space-y-3">
-        {solvedProblems.map((problem, index) => (
-          <div key={index} className="flex items-center gap-4 p-3 bg-accent rounded-lg">
-            <div className="flex-1">
-              <div className="font-medium">{problem.count}문제 해결</div>
-              <div className="text-sm text-muted-foreground">{problem.date}</div>
+      {isLoading ? (
+        <p className="text-sm text-muted-foreground">불러오는 중...</p>
+      ) : activeLevels.length === 0 ? (
+        <p className="text-sm text-muted-foreground">풀이 기록이 없습니다. 동기화를 실행해주세요.</p>
+      ) : (
+        <div className="space-y-3">
+          {activeLevels.map((level, index) => (
+            <div key={index} className="flex items-center gap-4 p-3 bg-accent rounded-lg">
+              <div className="flex-1">
+                <div className="font-medium">{level.count}문제 해결</div>
+              </div>
+              <div className={`px-3 py-1 rounded-full text-sm ${getLevelColor(level.level)}`}>
+                {level.level}
+              </div>
             </div>
-            <div className={`px-3 py-1 rounded-full text-sm ${getLevelColor(problem.level)}`}>
-              {problem.level}
-            </div>
-          </div>
-        ))}
-      </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

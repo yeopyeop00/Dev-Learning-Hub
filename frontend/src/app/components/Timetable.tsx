@@ -1,12 +1,14 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useOutletContext } from "react-router";
 import { Plus, X, Trash2 } from "lucide-react";
+import { getTimetable, addEntry, deleteEntry, type TimetableResponse } from "../../api";
 
 interface OutletContext {
   isLoggedIn: boolean;
 }
 
 interface ClassItem {
+  id: number;
   day: number;
   startTime: number;
   duration: number;
@@ -15,20 +17,34 @@ interface ClassItem {
   color: string;
 }
 
+const DAY_OF_WEEK = ["MONDAY", "TUESDAY", "WEDNESDAY", "THURSDAY", "FRIDAY"] as const;
+const TIME_SLOTS = ["09:00", "10:00", "11:00", "12:00", "13:00", "14:00", "15:00", "16:00", "17:00"];
+
+function dayIndex(dow: TimetableResponse["dayOfWeek"]): number {
+  return DAY_OF_WEEK.indexOf(dow);
+}
+
+function timeIndex(t: string): number {
+  const hh = t.substring(0, 2);
+  return TIME_SLOTS.findIndex((s) => s.startsWith(hh));
+}
+
+function fromResponse(r: TimetableResponse): ClassItem {
+  return {
+    id: r.id,
+    day: dayIndex(r.dayOfWeek),
+    startTime: timeIndex(r.startTime),
+    duration: r.duration,
+    subject: r.subject,
+    location: r.room,
+    color: r.color,
+  };
+}
+
 export function Timetable() {
   const { isLoggedIn } = useOutletContext<OutletContext>();
   const days = ["월요일", "화요일", "수요일", "목요일", "금요일"];
-  const times = [
-    "09:00",
-    "10:00",
-    "11:00",
-    "12:00",
-    "13:00",
-    "14:00",
-    "15:00",
-    "16:00",
-    "17:00",
-  ];
+  const times = TIME_SLOTS;
 
   const colorOptions = [
     { value: "bg-blue-500", label: "파랑" },
@@ -42,17 +58,10 @@ export function Timetable() {
     { value: "bg-indigo-500", label: "남색" },
   ];
 
-  const [schedule, setSchedule] = useState<ClassItem[]>([
-    { day: 0, startTime: 0, duration: 2, subject: "자료구조", location: "공학관 301", color: "bg-blue-500" },
-    { day: 0, startTime: 3, duration: 2, subject: "운영체제", location: "IT관 201", color: "bg-green-500" },
-    { day: 1, startTime: 1, duration: 2, subject: "알고리즘", location: "공학관 401", color: "bg-purple-500" },
-    { day: 2, startTime: 4, duration: 2, subject: "데이터베이스", location: "IT관 302", color: "bg-orange-500" },
-    { day: 3, startTime: 2, duration: 2, subject: "컴퓨터네트워크", location: "공학관 201", color: "bg-pink-500" },
-    { day: 4, startTime: 0, duration: 1, subject: "소프트웨어공학", location: "IT관 401", color: "bg-cyan-500" },
-  ]);
-
+  const [schedule, setSchedule] = useState<ClassItem[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
   const [showAddModal, setShowAddModal] = useState(false);
-  const [newClass, setNewClass] = useState<ClassItem>({
+  const [newClass, setNewClass] = useState({
     day: 0,
     startTime: 0,
     duration: 1,
@@ -61,23 +70,41 @@ export function Timetable() {
     color: "bg-blue-500",
   });
 
-  const handleAddClass = () => {
-    if (newClass.subject && newClass.location) {
-      setSchedule([...schedule, newClass]);
-      setNewClass({
-        day: 0,
-        startTime: 0,
-        duration: 1,
-        subject: "",
-        location: "",
-        color: "bg-blue-500",
-      });
+  useEffect(() => {
+    if (!isLoggedIn) return;
+    setIsLoading(true);
+    getTimetable()
+      .then((items) => setSchedule(items.map(fromResponse)))
+      .catch(console.error)
+      .finally(() => setIsLoading(false));
+  }, [isLoggedIn]);
+
+  const handleAddClass = async () => {
+    if (!newClass.subject || !newClass.location) return;
+    try {
+      const item = await addEntry(
+        newClass.subject,
+        newClass.location,
+        DAY_OF_WEEK[newClass.day],
+        times[newClass.startTime],
+        newClass.duration,
+        newClass.color
+      );
+      setSchedule((prev) => [...prev, fromResponse(item)]);
+      setNewClass({ day: 0, startTime: 0, duration: 1, subject: "", location: "", color: "bg-blue-500" });
       setShowAddModal(false);
+    } catch (err) {
+      console.error(err);
     }
   };
 
-  const handleDeleteClass = (index: number) => {
-    setSchedule(schedule.filter((_, i) => i !== index));
+  const handleDeleteClass = async (id: number) => {
+    try {
+      await deleteEntry(id);
+      setSchedule((prev) => prev.filter((c) => c.id !== id));
+    } catch (err) {
+      console.error(err);
+    }
   };
 
   if (!isLoggedIn) {
@@ -111,64 +138,64 @@ export function Timetable() {
       </div>
 
       <div className="bg-card rounded-lg border border-border p-6 overflow-x-auto">
-        <div className="min-w-[800px]">
-          <div className="grid grid-cols-6 gap-2">
-            <div className="font-medium p-2"></div>
-            {days.map((day) => (
-              <div key={day} className="font-medium p-2 text-center bg-accent rounded-lg">
-                {day}
-              </div>
-            ))}
-          </div>
+        {isLoading ? (
+          <p className="text-muted-foreground text-center py-8">불러오는 중...</p>
+        ) : (
+          <div className="min-w-[800px]">
+            <div className="grid grid-cols-6 gap-2">
+              <div className="font-medium p-2"></div>
+              {days.map((day) => (
+                <div key={day} className="font-medium p-2 text-center bg-accent rounded-lg">
+                  {day}
+                </div>
+              ))}
+            </div>
 
-          <div className="relative mt-4">
-            {times.map((time, timeIndex) => (
-              <div key={time} className="grid grid-cols-6 gap-2 mb-2">
-                <div className="text-sm text-muted-foreground p-2">{time}</div>
-                {days.map((_, dayIndex) => {
-                  const classItem = schedule.find(
-                    (item) => item.day === dayIndex && item.startTime === timeIndex
-                  );
-
-                  if (classItem) {
-                    return (
-                      <div
-                        key={dayIndex}
-                        className={`${classItem.color} text-white p-3 rounded-lg`}
-                        style={{ gridRow: `span ${classItem.duration}` }}
-                      >
-                        <div className="font-medium text-sm">{classItem.subject}</div>
-                        <div className="text-xs opacity-90 mt-1">{classItem.location}</div>
-                      </div>
+            <div className="relative mt-4">
+              {times.map((time, tIdx) => (
+                <div key={time} className="grid grid-cols-6 gap-2 mb-2">
+                  <div className="text-sm text-muted-foreground p-2">{time}</div>
+                  {days.map((_, dIdx) => {
+                    const classItem = schedule.find(
+                      (item) => item.day === dIdx && item.startTime === tIdx
                     );
-                  }
 
-                  const isOccupied = schedule.some(
-                    (item) =>
-                      item.day === dayIndex &&
-                      item.startTime < timeIndex &&
-                      item.startTime + item.duration > timeIndex
-                  );
+                    if (classItem) {
+                      return (
+                        <div
+                          key={dIdx}
+                          className={`${classItem.color} text-white p-3 rounded-lg`}
+                          style={{ gridRow: `span ${classItem.duration}` }}
+                        >
+                          <div className="font-medium text-sm">{classItem.subject}</div>
+                          <div className="text-xs opacity-90 mt-1">{classItem.location}</div>
+                        </div>
+                      );
+                    }
 
-                  if (isOccupied) {
-                    return null;
-                  }
+                    const isOccupied = schedule.some(
+                      (item) =>
+                        item.day === dIdx &&
+                        item.startTime < tIdx &&
+                        item.startTime + item.duration > tIdx
+                    );
 
-                  return (
-                    <div key={dayIndex} className="border border-border rounded-lg h-16"></div>
-                  );
-                })}
-              </div>
-            ))}
+                    if (isOccupied) return null;
+
+                    return <div key={dIdx} className="border border-border rounded-lg h-16"></div>;
+                  })}
+                </div>
+              ))}
+            </div>
           </div>
-        </div>
+        )}
       </div>
 
       <div className="bg-card rounded-lg border border-border p-6">
         <h3 className="mb-4">수업 정보</h3>
         <div className="space-y-3">
-          {schedule.map((item, index) => (
-            <div key={index} className="flex items-center gap-4 p-4 bg-accent rounded-lg">
+          {schedule.map((item) => (
+            <div key={item.id} className="flex items-center gap-4 p-4 bg-accent rounded-lg">
               <div className={`w-3 h-3 rounded-full ${item.color}`}></div>
               <div className="flex-1">
                 <div className="font-medium">{item.subject}</div>
@@ -178,7 +205,7 @@ export function Timetable() {
                 {days[item.day]} {times[item.startTime]}
               </div>
               <button
-                onClick={() => handleDeleteClass(index)}
+                onClick={() => handleDeleteClass(item.id)}
                 className="p-2 hover:bg-destructive/10 hover:text-destructive rounded-lg transition-colors"
                 title="수업 삭제"
               >
@@ -195,10 +222,7 @@ export function Timetable() {
           <div className="bg-card rounded-lg border border-border p-6 w-full max-w-md mx-4">
             <div className="flex items-center justify-between mb-4">
               <h3>새 수업 추가</h3>
-              <button
-                onClick={() => setShowAddModal(false)}
-                className="p-1 hover:bg-accent rounded"
-              >
+              <button onClick={() => setShowAddModal(false)} className="p-1 hover:bg-accent rounded">
                 <X className="w-5 h-5" />
               </button>
             </div>
@@ -234,9 +258,7 @@ export function Timetable() {
                   className="w-full px-3 py-2 bg-background border border-border rounded-lg"
                 >
                   {days.map((day, index) => (
-                    <option key={index} value={index}>
-                      {day}
-                    </option>
+                    <option key={index} value={index}>{day}</option>
                   ))}
                 </select>
               </div>
@@ -249,9 +271,7 @@ export function Timetable() {
                   className="w-full px-3 py-2 bg-background border border-border rounded-lg"
                 >
                   {times.map((time, index) => (
-                    <option key={index} value={index}>
-                      {time}
-                    </option>
+                    <option key={index} value={index}>{time}</option>
                   ))}
                 </select>
               </div>

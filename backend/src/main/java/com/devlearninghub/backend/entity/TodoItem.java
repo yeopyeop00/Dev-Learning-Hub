@@ -27,6 +27,5 @@ public class TodoItem {
     private TodoStatus status;
 
     private String category;
-    private int priority;
     private LocalDateTime createdAt;
 }

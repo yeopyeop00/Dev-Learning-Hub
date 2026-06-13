@@ -12,7 +12,6 @@ public class TodoResponse {
     private String content;
     private TodoStatus status;
     private String category;
-    private int priority;
     private LocalDateTime createdAt;
 
     public TodoResponse(TodoItem item) {
@@ -20,7 +19,6 @@ public class TodoResponse {
         this.content = item.getContent();
         this.status = item.getStatus();
         this.category = item.getCategory();
-        this.priority = item.getPriority();
         this.createdAt = item.getCreatedAt();
     }
 }

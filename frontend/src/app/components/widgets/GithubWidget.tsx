@@ -1,6 +1,22 @@
+import { useEffect, useState } from "react";
 import { Github, Settings } from "lucide-react";
+import { getGithubStat, type GithubStatResponse } from "../../../api";
+
+interface ActivityEntry { repo: string; commits: number; branch: string; lastCommit: string; time: string; }
 
 export function GithubWidget({ hasGithubConfig }: { hasGithubConfig: boolean }) {
+  const [stat, setStat] = useState<GithubStatResponse | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
+
+  useEffect(() => {
+    if (!hasGithubConfig) return;
+    setIsLoading(true);
+    getGithubStat()
+      .then(setStat)
+      .catch(console.error)
+      .finally(() => setIsLoading(false));
+  }, [hasGithubConfig]);
+
   if (!hasGithubConfig) {
     return (
       <div className="bg-card rounded-lg border border-border p-6 flex flex-col items-center justify-center gap-3 min-h-[200px]">
@@ -15,12 +31,9 @@ export function GithubWidget({ hasGithubConfig }: { hasGithubConfig: boolean }) 
     );
   }
 
-  const commits = [
-    { date: "2026-03-22", count: 3, message: "알고리즘 문제 풀이 추가" },
-    { date: "2026-03-21", count: 5, message: "React 프로젝트 업데이트" },
-    { date: "2026-03-20", count: 2, message: "버그 수정" },
-    { date: "2026-03-19", count: 4, message: "새로운 기능 구현" },
-  ];
+  const recentActivity: ActivityEntry[] = stat?.recentActivities
+    ? (() => { try { return JSON.parse(stat.recentActivities); } catch { return []; } })()
+    : [];
 
   return (
     <div className="bg-card rounded-lg border border-border p-6">
@@ -28,19 +41,25 @@ export function GithubWidget({ hasGithubConfig }: { hasGithubConfig: boolean }) 
         <Github className="w-5 h-5 text-primary" />
         <h3>GitHub 활동</h3>
       </div>
-      <div className="space-y-3">
-        {commits.map((commit, index) => (
-          <div key={index} className="flex items-center gap-4 p-3 bg-accent rounded-lg">
-            <div className="flex-1">
-              <div className="font-medium">{commit.message}</div>
-              <div className="text-sm text-muted-foreground">{commit.date}</div>
+      {isLoading ? (
+        <p className="text-sm text-muted-foreground">불러오는 중...</p>
+      ) : recentActivity.length === 0 ? (
+        <p className="text-sm text-muted-foreground">최근 활동이 없습니다. 동기화를 실행해주세요.</p>
+      ) : (
+        <div className="space-y-3">
+          {recentActivity.map((activity, index) => (
+            <div key={index} className="flex items-center gap-4 p-3 bg-accent rounded-lg">
+              <div className="flex-1">
+                <div className="font-medium">{activity.repo}</div>
+                <div className="text-sm text-muted-foreground">{activity.lastCommit}</div>
+              </div>
+              <div className="bg-green-500/10 text-green-600 px-3 py-1 rounded-full text-sm">
+                {activity.commits} commits
+              </div>
             </div>
-            <div className="bg-green-500/10 text-green-600 px-3 py-1 rounded-full text-sm">
-              {commit.count} commits
-            </div>
-          </div>
-        ))}
-      </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

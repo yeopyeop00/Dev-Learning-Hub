@@ -1,11 +1,15 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useOutletContext } from "react-router";
 import { ChevronLeft, ChevronRight, Plus, X, Trash2 } from "lucide-react";
+import { getEvents, addEvent, deleteEvent, type CalendarResponse } from "../../api";
+
+type EventTypeKey = "CLASS" | "ASSIGNMENT" | "EXAM" | "STUDY" | "PERSONAL";
 
 interface Event {
+  id: number;
   date: string;
   title: string;
-  type: "class" | "assignment" | "exam" | "study";
+  type: EventTypeKey;
   time?: string;
 }
 
@@ -13,24 +17,32 @@ interface OutletContext {
   isLoggedIn: boolean;
 }
 
+function fromResponse(r: CalendarResponse): Event {
+  return {
+    id: r.id,
+    date: r.date,
+    title: r.title,
+    type: r.type,
+    time: r.time ? r.time.substring(0, 5) : undefined,
+  };
+}
+
 export function CalendarView() {
   const { isLoggedIn } = useOutletContext<OutletContext>();
-  const [currentDate, setCurrentDate] = useState(new Date(2026, 2, 22));
-  const [events, setEvents] = useState<Event[]>([
-    { date: "2026-03-22", title: "자료구조 수업", type: "class", time: "09:00" },
-    { date: "2026-03-22", title: "알고리즘 과제 마감", type: "assignment", time: "23:59" },
-    { date: "2026-03-24", title: "운영체제 중간고사", type: "exam", time: "10:00" },
-    { date: "2026-03-25", title: "코딩 테스트 준비", type: "study", time: "14:00" },
-    { date: "2026-03-27", title: "데이터베이스 수업", type: "class", time: "13:00" },
-    { date: "2026-03-28", title: "프로젝트 발표", type: "assignment", time: "15:00" },
-  ]);
+  const [currentDate, setCurrentDate] = useState(new Date());
+  const [events, setEvents] = useState<Event[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
   const [showAddModal, setShowAddModal] = useState(false);
-  const [newEvent, setNewEvent] = useState<Event>({
-    date: "",
-    title: "",
-    type: "class",
-    time: "",
-  });
+  const [newEvent, setNewEvent] = useState({ date: "", title: "", type: "CLASS" as EventTypeKey, time: "" });
+
+  useEffect(() => {
+    if (!isLoggedIn) return;
+    setIsLoading(true);
+    getEvents()
+      .then((items) => setEvents(items.map(fromResponse)))
+      .catch(console.error)
+      .finally(() => setIsLoading(false));
+  }, [isLoggedIn]);
 
   const getDaysInMonth = (date: Date) => {
     const year = date.getFullYear();
@@ -39,75 +51,68 @@ export function CalendarView() {
     const lastDay = new Date(year, month + 1, 0);
     const daysInMonth = lastDay.getDate();
     const startingDayOfWeek = firstDay.getDay();
-
     return { daysInMonth, startingDayOfWeek };
   };
 
   const { daysInMonth, startingDayOfWeek } = getDaysInMonth(currentDate);
 
-  const previousMonth = () => {
+  const previousMonth = () =>
     setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth() - 1, 1));
-  };
-
-  const nextMonth = () => {
+  const nextMonth = () =>
     setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 1));
-  };
 
   const getEventsForDate = (day: number) => {
     const dateStr = `${currentDate.getFullYear()}-${String(currentDate.getMonth() + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
-    return events.filter(event => event.date === dateStr);
+    return events.filter((event) => event.date === dateStr);
   };
 
   const getEventColor = (type: string) => {
     switch (type) {
-      case "class":
-        return "bg-blue-500";
-      case "assignment":
-        return "bg-orange-500";
-      case "exam":
-        return "bg-red-500";
-      case "study":
-        return "bg-green-500";
-      default:
-        return "bg-gray-500";
+      case "CLASS": return "bg-blue-500";
+      case "ASSIGNMENT": return "bg-orange-500";
+      case "EXAM": return "bg-red-500";
+      case "STUDY": return "bg-green-500";
+      case "PERSONAL": return "bg-purple-500";
+      default: return "bg-gray-500";
     }
   };
 
   const getEventTypeLabel = (type: string) => {
     switch (type) {
-      case "class":
-        return "수업";
-      case "assignment":
-        return "과제";
-      case "exam":
-        return "시험";
-      case "study":
-        return "학습";
-      default:
-        return "";
+      case "CLASS": return "수업";
+      case "ASSIGNMENT": return "과제";
+      case "EXAM": return "시험";
+      case "STUDY": return "학습";
+      case "PERSONAL": return "개인";
+      default: return "";
     }
   };
 
-  const monthName = currentDate.toLocaleDateString("ko-KR", {
-    year: "numeric",
-    month: "long",
-  });
+  const monthName = currentDate.toLocaleDateString("ko-KR", { year: "numeric", month: "long" });
+  const today = new Date();
+  const isCurrentMonth =
+    currentDate.getFullYear() === today.getFullYear() &&
+    currentDate.getMonth() === today.getMonth();
 
-  const handleAddEvent = () => {
-    if (newEvent.title && newEvent.date) {
-      setEvents([...events, newEvent]);
-      setNewEvent({
-        date: "",
-        title: "",
-        type: "class",
-        time: "",
-      });
+  const handleAddEvent = async () => {
+    if (!newEvent.title || !newEvent.date) return;
+    try {
+      const item = await addEvent(newEvent.title, newEvent.date, newEvent.time, newEvent.type);
+      setEvents((prev) => [...prev, fromResponse(item)]);
+      setNewEvent({ date: "", title: "", type: "CLASS", time: "" });
       setShowAddModal(false);
+    } catch (err) {
+      console.error(err);
     }
   };
 
-  const handleDeleteEvent = (index: number) => {
-    setEvents(events.filter((_, i) => i !== index));
+  const handleDeleteEvent = async (id: number) => {
+    try {
+      await deleteEvent(id);
+      setEvents((prev) => prev.filter((e) => e.id !== id));
+    } catch (err) {
+      console.error(err);
+    }
   };
 
   if (!isLoggedIn) {
@@ -145,16 +150,10 @@ export function CalendarView() {
         <div className="flex items-center justify-between mb-6">
           <h3>{monthName}</h3>
           <div className="flex gap-2">
-            <button
-              onClick={previousMonth}
-              className="p-2 hover:bg-accent rounded-lg"
-            >
+            <button onClick={previousMonth} className="p-2 hover:bg-accent rounded-lg">
               <ChevronLeft className="w-5 h-5" />
             </button>
-            <button
-              onClick={nextMonth}
-              className="p-2 hover:bg-accent rounded-lg"
-            >
+            <button onClick={nextMonth} className="p-2 hover:bg-accent rounded-lg">
               <ChevronRight className="w-5 h-5" />
             </button>
           </div>
@@ -175,7 +174,7 @@ export function CalendarView() {
           {Array.from({ length: daysInMonth }).map((_, index) => {
             const day = index + 1;
             const dayEvents = getEventsForDate(day);
-            const isToday = day === 22;
+            const isToday = isCurrentMonth && day === today.getDate();
 
             return (
               <div
@@ -188,15 +187,13 @@ export function CalendarView() {
                   {day}
                 </div>
                 <div className="space-y-1">
-                  {dayEvents.map((event, eventIndex) => (
+                  {dayEvents.map((event) => (
                     <div
-                      key={eventIndex}
+                      key={event.id}
                       className={`text-xs p-1 rounded text-white ${getEventColor(event.type)}`}
                       title={`${event.title} ${event.time ? `- ${event.time}` : ""}`}
                     >
-                      {event.title.length > 10
-                        ? event.title.substring(0, 10) + "..."
-                        : event.title}
+                      {event.title.length > 10 ? event.title.substring(0, 10) + "..." : event.title}
                     </div>
                   ))}
                 </div>
@@ -209,35 +206,39 @@ export function CalendarView() {
       {/* Upcoming Events */}
       <div className="bg-card rounded-lg border border-border p-6">
         <h3 className="mb-4">다가오는 일정</h3>
-        <div className="space-y-3">
-          {events.map((event, index) => (
-            <div key={index} className="flex items-center gap-4 p-4 bg-accent rounded-lg">
-              <div className={`w-3 h-3 rounded-full ${getEventColor(event.type)}`}></div>
-              <div className="flex-1">
-                <div className="font-medium">{event.title}</div>
-                <div className="text-sm text-muted-foreground">
-                  {event.date} {event.time && `• ${event.time}`}
+        {isLoading ? (
+          <p className="text-muted-foreground text-center py-4">불러오는 중...</p>
+        ) : (
+          <div className="space-y-3">
+            {events.map((event) => (
+              <div key={event.id} className="flex items-center gap-4 p-4 bg-accent rounded-lg">
+                <div className={`w-3 h-3 rounded-full ${getEventColor(event.type)}`}></div>
+                <div className="flex-1">
+                  <div className="font-medium">{event.title}</div>
+                  <div className="text-sm text-muted-foreground">
+                    {event.date} {event.time && `• ${event.time}`}
+                  </div>
                 </div>
+                <div className={`text-xs px-3 py-1 rounded-full ${getEventColor(event.type)} text-white`}>
+                  {getEventTypeLabel(event.type)}
+                </div>
+                <button
+                  onClick={() => handleDeleteEvent(event.id)}
+                  className="p-2 hover:bg-destructive/10 hover:text-destructive rounded-lg transition-colors"
+                  title="일정 삭제"
+                >
+                  <Trash2 className="w-4 h-4" />
+                </button>
               </div>
-              <div className={`text-xs px-3 py-1 rounded-full ${getEventColor(event.type)} text-white`}>
-                {getEventTypeLabel(event.type)}
-              </div>
-              <button
-                onClick={() => handleDeleteEvent(index)}
-                className="p-2 hover:bg-destructive/10 hover:text-destructive rounded-lg transition-colors"
-                title="일정 삭제"
-              >
-                <Trash2 className="w-4 h-4" />
-              </button>
-            </div>
-          ))}
-        </div>
+            ))}
+          </div>
+        )}
       </div>
 
       {/* Legend */}
       <div className="bg-card rounded-lg border border-border p-6">
         <h3 className="mb-4">범례</h3>
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
           <div className="flex items-center gap-2">
             <div className="w-4 h-4 rounded bg-blue-500"></div>
             <span className="text-sm">수업</span>
@@ -254,6 +255,10 @@ export function CalendarView() {
             <div className="w-4 h-4 rounded bg-green-500"></div>
             <span className="text-sm">학습</span>
           </div>
+          <div className="flex items-center gap-2">
+            <div className="w-4 h-4 rounded bg-purple-500"></div>
+            <span className="text-sm">개인</span>
+          </div>
         </div>
       </div>
 
@@ -263,10 +268,7 @@ export function CalendarView() {
           <div className="bg-card rounded-lg border border-border p-6 w-full max-w-md mx-4">
             <div className="flex items-center justify-between mb-4">
               <h3>새 일정 추가</h3>
-              <button
-                onClick={() => setShowAddModal(false)}
-                className="p-1 hover:bg-accent rounded"
-              >
+              <button onClick={() => setShowAddModal(false)} className="p-1 hover:bg-accent rounded">
                 <X className="w-5 h-5" />
               </button>
             </div>
@@ -307,15 +309,14 @@ export function CalendarView() {
                 <label className="block text-sm font-medium mb-2">유형</label>
                 <select
                   value={newEvent.type}
-                  onChange={(e) =>
-                    setNewEvent({ ...newEvent, type: e.target.value as Event["type"] })
-                  }
+                  onChange={(e) => setNewEvent({ ...newEvent, type: e.target.value as EventTypeKey })}
                   className="w-full px-3 py-2 bg-background border border-border rounded-lg"
                 >
-                  <option value="class">수업</option>
-                  <option value="assignment">과제</option>
-                  <option value="exam">시험</option>
-                  <option value="study">학습</option>
+                  <option value="CLASS">수업</option>
+                  <option value="ASSIGNMENT">과제</option>
+                  <option value="EXAM">시험</option>
+                  <option value="STUDY">학습</option>
+                  <option value="PERSONAL">개인</option>
                 </select>
               </div>
 

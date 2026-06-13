@@ -8,7 +8,6 @@ import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.web.server.ResponseStatusException;
 
-import java.util.UUID;
 import java.util.regex.Pattern;
 
 @Service
@@ -38,7 +37,7 @@ public class AuthService {
         return userRepository.save(user);
     }
 
-    public String login(String email, String pwd) {
+    public User login(String email, String pwd) {
         User user = userRepository.findByEmail(email)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED, "이메일 또는 비밀번호가 올바르지 않습니다."));
 
@@ -46,7 +45,7 @@ public class AuthService {
             throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "이메일 또는 비밀번호가 올바르지 않습니다.");
         }
 
-        return UUID.randomUUID().toString();
+        return user;
     }
 
     public void logout() {

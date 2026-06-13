@@ -9,5 +9,4 @@ public class TodoRequest {
     private Long userId;
     private String content;
     private String category;
-    private String priority;
 }

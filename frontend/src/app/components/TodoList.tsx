@@ -1,80 +1,85 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useOutletContext } from "react-router";
 import { Plus, Trash2, Check } from "lucide-react";
+import { getTodos, addTodo, toggleTodo, deleteTodo, type TodoResponse } from "../../api";
 
 interface Todo {
   id: number;
   text: string;
   completed: boolean;
   category: string;
-  priority: "high" | "medium" | "low";
 }
 
 interface OutletContext {
   isLoggedIn: boolean;
 }
 
+function fromResponse(item: TodoResponse): Todo {
+  return {
+    id: item.id,
+    text: item.content,
+    completed: item.status === "DONE",
+    category: item.category ?? "일반",
+  };
+}
+
 export function TodoList() {
   const { isLoggedIn } = useOutletContext<OutletContext>();
-  const [todos, setTodos] = useState<Todo[]>([
-    { id: 1, text: "백준 1234번 풀기", completed: true, category: "알고리즘", priority: "high" },
-    { id: 2, text: "자료구조 과제 제출", completed: true, category: "과제", priority: "high" },
-    { id: 3, text: "React 프로젝트 진행", completed: false, category: "프로젝트", priority: "medium" },
-    { id: 4, text: "운영체제 복습", completed: false, category: "학습", priority: "medium" },
-    { id: 5, text: "알고리즘 강의 듣기", completed: false, category: "학습", priority: "low" },
-  ]);
+  const [todos, setTodos] = useState<Todo[]>([]);
   const [newTodo, setNewTodo] = useState("");
   const [filter, setFilter] = useState<"all" | "active" | "completed">("all");
+  const [isLoading, setIsLoading] = useState(false);
 
-  const addTodo = () => {
-    if (newTodo.trim()) {
-      setTodos([
-        ...todos,
-        {
-          id: Date.now(),
-          text: newTodo,
-          completed: false,
-          category: "일반",
-          priority: "medium",
-        },
-      ]);
+  useEffect(() => {
+    if (!isLoggedIn) return;
+    setIsLoading(true);
+    getTodos()
+      .then((items) => setTodos(items.map(fromResponse)))
+      .catch(console.error)
+      .finally(() => setIsLoading(false));
+  }, [isLoggedIn]);
+
+  const handleAddTodo = async () => {
+    if (!newTodo.trim()) return;
+    try {
+      const item = await addTodo(newTodo.trim(), "일반");
+      setTodos((prev) => [...prev, fromResponse(item)]);
       setNewTodo("");
+    } catch (err) {
+      console.error(err);
     }
   };
 
-  const toggleTodo = (id: number) => {
-    setTodos(todos.map(todo =>
-      todo.id === id ? { ...todo, completed: !todo.completed } : todo
-    ));
+  const handleToggleTodo = async (id: number) => {
+    try {
+      const updated = await toggleTodo(id);
+      setTodos((prev) =>
+        prev.map((t) => (t.id === id ? fromResponse(updated) : t))
+      );
+    } catch (err) {
+      console.error(err);
+    }
   };
 
-  const deleteTodo = (id: number) => {
-    setTodos(todos.filter(todo => todo.id !== id));
+  const handleDeleteTodo = async (id: number) => {
+    try {
+      await deleteTodo(id);
+      setTodos((prev) => prev.filter((t) => t.id !== id));
+    } catch (err) {
+      console.error(err);
+    }
   };
 
-  const filteredTodos = todos.filter(todo => {
+  const filteredTodos = todos.filter((todo) => {
     if (filter === "active") return !todo.completed;
     if (filter === "completed") return todo.completed;
     return true;
   });
 
-  const getPriorityColor = (priority: string) => {
-    switch (priority) {
-      case "high":
-        return "bg-red-500/10 text-red-600";
-      case "medium":
-        return "bg-yellow-500/10 text-yellow-600";
-      case "low":
-        return "bg-blue-500/10 text-blue-600";
-      default:
-        return "bg-gray-500/10 text-gray-600";
-    }
-  };
-
   const stats = {
     total: todos.length,
-    completed: todos.filter(t => t.completed).length,
-    active: todos.filter(t => !t.completed).length,
+    completed: todos.filter((t) => t.completed).length,
+    active: todos.filter((t) => !t.completed).length,
   };
 
   if (!isLoggedIn) {
@@ -121,12 +126,12 @@ export function TodoList() {
             type="text"
             value={newTodo}
             onChange={(e) => setNewTodo(e.target.value)}
-            onKeyPress={(e) => e.key === "Enter" && addTodo()}
+            onKeyPress={(e) => e.key === "Enter" && handleAddTodo()}
             placeholder="새로운 할 일을 입력하세요..."
             className="flex-1 px-4 py-3 bg-input-background border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
           />
           <button
-            onClick={addTodo}
+            onClick={handleAddTodo}
             className="px-6 py-3 bg-primary text-primary-foreground rounded-lg hover:opacity-90 flex items-center gap-2"
           >
             <Plus className="w-5 h-5" />
@@ -139,25 +144,19 @@ export function TodoList() {
       <div className="flex gap-2">
         <button
           onClick={() => setFilter("all")}
-          className={`px-4 py-2 rounded-lg ${
-            filter === "all" ? "bg-primary text-primary-foreground" : "bg-accent"
-          }`}
+          className={`px-4 py-2 rounded-lg ${filter === "all" ? "bg-primary text-primary-foreground" : "bg-accent"}`}
         >
           전체
         </button>
         <button
           onClick={() => setFilter("active")}
-          className={`px-4 py-2 rounded-lg ${
-            filter === "active" ? "bg-primary text-primary-foreground" : "bg-accent"
-          }`}
+          className={`px-4 py-2 rounded-lg ${filter === "active" ? "bg-primary text-primary-foreground" : "bg-accent"}`}
         >
           진행 중
         </button>
         <button
           onClick={() => setFilter("completed")}
-          className={`px-4 py-2 rounded-lg ${
-            filter === "completed" ? "bg-primary text-primary-foreground" : "bg-accent"
-          }`}
+          className={`px-4 py-2 rounded-lg ${filter === "completed" ? "bg-primary text-primary-foreground" : "bg-accent"}`}
         >
           완료
         </button>
@@ -165,46 +164,45 @@ export function TodoList() {
 
       {/* Todo List */}
       <div className="bg-card rounded-lg border border-border p-6">
-        <div className="space-y-3">
-          {filteredTodos.map((todo) => (
-            <div
-              key={todo.id}
-              className="flex items-center gap-4 p-4 bg-accent rounded-lg group"
-            >
-              <button
-                onClick={() => toggleTodo(todo.id)}
-                className={`w-6 h-6 rounded border-2 flex items-center justify-center flex-shrink-0 ${
-                  todo.completed
-                    ? "bg-primary border-primary"
-                    : "border-muted-foreground hover:border-primary"
-                }`}
+        {isLoading ? (
+          <p className="text-muted-foreground text-center py-8">불러오는 중...</p>
+        ) : (
+          <div className="space-y-3">
+            {filteredTodos.map((todo) => (
+              <div
+                key={todo.id}
+                className="flex items-center gap-4 p-4 bg-accent rounded-lg group"
               >
-                {todo.completed && <Check className="w-4 h-4 text-primary-foreground" />}
-              </button>
+                <button
+                  onClick={() => handleToggleTodo(todo.id)}
+                  className={`w-6 h-6 rounded border-2 flex items-center justify-center flex-shrink-0 ${
+                    todo.completed
+                      ? "bg-primary border-primary"
+                      : "border-muted-foreground hover:border-primary"
+                  }`}
+                >
+                  {todo.completed && <Check className="w-4 h-4 text-primary-foreground" />}
+                </button>
 
-              <div className="flex-1">
-                <p className={todo.completed ? "line-through text-muted-foreground" : ""}>
-                  {todo.text}
-                </p>
-                <div className="flex items-center gap-2 mt-1">
-                  <span className="text-xs px-2 py-1 bg-primary/10 text-primary rounded">
+                <div className="flex-1">
+                  <p className={todo.completed ? "line-through text-muted-foreground" : ""}>
+                    {todo.text}
+                  </p>
+                  <span className="text-xs px-2 py-1 bg-primary/10 text-primary rounded mt-1 inline-block">
                     {todo.category}
                   </span>
-                  <span className={`text-xs px-2 py-1 rounded ${getPriorityColor(todo.priority)}`}>
-                    {todo.priority}
-                  </span>
                 </div>
-              </div>
 
-              <button
-                onClick={() => deleteTodo(todo.id)}
-                className="opacity-0 group-hover:opacity-100 p-2 hover:bg-destructive/10 rounded-lg transition-opacity"
-              >
-                <Trash2 className="w-5 h-5 text-destructive" />
-              </button>
-            </div>
-          ))}
-        </div>
+                <button
+                  onClick={() => handleDeleteTodo(todo.id)}
+                  className="opacity-0 group-hover:opacity-100 p-2 hover:bg-destructive/10 rounded-lg transition-opacity"
+                >
+                  <Trash2 className="w-5 h-5 text-destructive" />
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
     </div>
   );

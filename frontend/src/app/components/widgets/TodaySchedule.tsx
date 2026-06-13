@@ -1,12 +1,25 @@
+import { useEffect, useState } from "react";
 import { Clock } from "lucide-react";
+import { getTodaySchedule, type TimetableResponse } from "../../../api";
+
+function formatTimeRange(startTime: string, duration: number): string {
+  const [h, m] = startTime.split(":").map(Number);
+  const endTotal = h * 60 + m + duration;
+  const endH = Math.floor(endTotal / 60);
+  const endM = endTotal % 60;
+  return `${startTime} - ${String(endH).padStart(2, "0")}:${String(endM).padStart(2, "0")}`;
+}
 
 export function TodaySchedule() {
-  const schedule = [
-    { time: "09:00 - 10:30", subject: "자료구조", location: "공학관 301" },
-    { time: "10:30 - 12:00", subject: "알고리즘", location: "공학관 401" },
-    { time: "13:00 - 14:30", subject: "운영체제", location: "IT관 201" },
-    { time: "15:00 - 16:30", subject: "데이터베이스", location: "IT관 302" },
-  ];
+  const [schedule, setSchedule] = useState<TimetableResponse[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    getTodaySchedule()
+      .then(setSchedule)
+      .catch(console.error)
+      .finally(() => setIsLoading(false));
+  }, []);
 
   return (
     <div className="bg-card rounded-lg border border-border p-6">
@@ -14,17 +27,25 @@ export function TodaySchedule() {
         <Clock className="w-5 h-5 text-primary" />
         <h3>오늘의 시간표</h3>
       </div>
-      <div className="space-y-3">
-        {schedule.map((item, index) => (
-          <div key={index} className="flex gap-4 p-3 bg-accent rounded-lg">
-            <div className="text-sm text-muted-foreground min-w-[100px]">{item.time}</div>
-            <div className="flex-1">
-              <div className="font-medium">{item.subject}</div>
-              <div className="text-sm text-muted-foreground">{item.location}</div>
+      {isLoading ? (
+        <p className="text-sm text-muted-foreground">불러오는 중...</p>
+      ) : schedule.length === 0 ? (
+        <p className="text-sm text-muted-foreground">오늘 수업이 없습니다</p>
+      ) : (
+        <div className="space-y-3">
+          {schedule.map((item) => (
+            <div key={item.id} className="flex gap-4 p-3 bg-accent rounded-lg">
+              <div className="text-sm text-muted-foreground min-w-[130px]">
+                {formatTimeRange(item.startTime, item.duration)}
+              </div>
+              <div className="flex-1">
+                <div className="font-medium">{item.subject}</div>
+                <div className="text-sm text-muted-foreground">{item.room}</div>
+              </div>
             </div>
-          </div>
-        ))}
-      </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
