@@ -30,6 +30,16 @@ public class GithubSyncController {
         return ResponseEntity.ok(githubSyncService.getProgrammersStat(userId));
     }
 
+    @GetMapping("/activity")
+    public ResponseEntity<?> getGithubActivity(@RequestParam Long userId) {
+        return ResponseEntity.ok(githubSyncService.getGithubActivity(userId));
+    }
+
+    @GetMapping("/programmers/activity")
+    public ResponseEntity<?> getProgrammersActivity(@RequestParam Long userId) {
+        return ResponseEntity.ok(githubSyncService.getProgrammersActivity(userId));
+    }
+
     @PostMapping("/sync")
     public ResponseEntity<?> syncAll(@RequestParam Long userId) {
         return ResponseEntity.ok(githubSyncService.syncAll(userId));

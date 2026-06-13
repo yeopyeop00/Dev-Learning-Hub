@@ -67,20 +67,20 @@ export function GithubStats() {
     );
   }
 
-  const weeklyData: WeeklyEntry[] = stat?.weeklyData
-    ? (() => {
-        try { return JSON.parse(stat.weeklyData); }
-        catch { return []; }
-      })()
-    : [
-        { day: "월", commits: 0 },
-        { day: "화", commits: 0 },
-        { day: "수", commits: 0 },
-        { day: "목", commits: 0 },
-        { day: "금", commits: 0 },
-        { day: "토", commits: 0 },
-        { day: "일", commits: 0 },
-      ];
+  const DAY_ORDER = ["월", "화", "수", "목", "금", "토", "일"];
+  const weeklyData: WeeklyEntry[] = (() => {
+    if (!stat?.weeklyData) {
+      return DAY_ORDER.map((day) => ({ day, commits: 0 }));
+    }
+    try {
+      const parsed = JSON.parse(stat.weeklyData);
+      if (Array.isArray(parsed)) return parsed;
+      // {"월":2,"화":0,...} → [{day:"월",commits:2},...]
+      return DAY_ORDER.map((day) => ({ day, commits: (parsed as Record<string, number>)[day] ?? 0 }));
+    } catch {
+      return DAY_ORDER.map((day) => ({ day, commits: 0 }));
+    }
+  })();
 
   const recentActivity: ActivityEntry[] = stat?.recentActivities
     ? (() => {
@@ -89,18 +89,25 @@ export function GithubStats() {
       })()
     : [];
 
-  const contributionGrid = stat?.yearlyStat
-    ? (() => {
-        try { return JSON.parse(stat.yearlyStat) as { week: number; day: number; count: number }[][]; }
-        catch { return null; }
-      })()
-    : null;
+  const yearlyMap: Record<string, number> = stat?.yearlyStat
+    ? (() => { try { return JSON.parse(stat.yearlyStat) as Record<string, number>; } catch { return {}; } })()
+    : {};
 
-  const fallbackGrid = Array.from({ length: 52 }, (_, week) =>
-    Array.from({ length: 7 }, (_, day) => ({ week, day, count: 0 }))
-  );
+  const hasYearlyData = Object.keys(yearlyMap).length > 0;
 
-  const grid = contributionGrid ?? fallbackGrid;
+  const grid = (() => {
+    const today = new Date();
+    const startDate = new Date(today);
+    startDate.setDate(startDate.getDate() - 52 * 7 + 1);
+    return Array.from({ length: 52 }, (_, week) =>
+      Array.from({ length: 7 }, (_, day) => {
+        const d = new Date(startDate);
+        d.setDate(d.getDate() + week * 7 + day);
+        const dateStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+        return { week, day, count: yearlyMap[dateStr] ?? 0 };
+      })
+    );
+  })();
 
   const getContributionColor = (count: number) => {
     if (count === 0) return "bg-muted";
@@ -172,45 +179,59 @@ export function GithubStats() {
           {/* Weekly Chart */}
           <div className="bg-card rounded-lg border border-border p-6">
             <h3 className="mb-4">주간 커밋 현황</h3>
-            <ResponsiveContainer width="100%" height={300}>
-              <BarChart data={weeklyData}>
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="day" />
-                <YAxis />
-                <Tooltip />
-                <Bar dataKey="commits" fill="#3b82f6" radius={[8, 8, 0, 0]} />
-              </BarChart>
-            </ResponsiveContainer>
+            {!stat?.weeklyData ? (
+              <div className="flex items-center justify-center h-[300px] text-muted-foreground text-sm">
+                데이터 없음
+              </div>
+            ) : (
+              <ResponsiveContainer width="100%" height={300}>
+                <BarChart data={weeklyData}>
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis dataKey="day" />
+                  <YAxis />
+                  <Tooltip />
+                  <Bar dataKey="commits" fill="#3b82f6" radius={[8, 8, 0, 0]} />
+                </BarChart>
+              </ResponsiveContainer>
+            )}
           </div>
 
           {/* Contribution Grid */}
           <div className="bg-card rounded-lg border border-border p-6">
             <h3 className="mb-4">연간 기여도</h3>
-            <div className="overflow-x-auto">
-              <div className="inline-flex gap-1">
-                {grid.map((week, weekIndex) => (
-                  <div key={weekIndex} className="flex flex-col gap-1">
-                    {week.map((day) => (
-                      <div
-                        key={`${day.week}-${day.day}`}
-                        className={`w-3 h-3 rounded-sm ${getContributionColor(day.count)}`}
-                        title={`${day.count} contributions`}
-                      ></div>
+            {!hasYearlyData ? (
+              <div className="flex items-center justify-center h-[120px] text-muted-foreground text-sm">
+                데이터 없음
+              </div>
+            ) : (
+              <>
+                <div className="overflow-x-auto">
+                  <div className="inline-flex gap-1">
+                    {grid.map((week, weekIndex) => (
+                      <div key={weekIndex} className="flex flex-col gap-1">
+                        {week.map((day) => (
+                          <div
+                            key={`${day.week}-${day.day}`}
+                            className={`w-3 h-3 rounded-sm ${getContributionColor(day.count)}`}
+                            title={`${day.count} contributions`}
+                          ></div>
+                        ))}
+                      </div>
                     ))}
                   </div>
-                ))}
-              </div>
-            </div>
-            <div className="flex items-center gap-2 mt-4">
-              <span className="text-sm text-muted-foreground">Less</span>
-              <div className="flex gap-1">
-                <div className="w-3 h-3 rounded-sm bg-muted"></div>
-                <div className="w-3 h-3 rounded-sm bg-green-200"></div>
-                <div className="w-3 h-3 rounded-sm bg-green-400"></div>
-                <div className="w-3 h-3 rounded-sm bg-green-600"></div>
-              </div>
-              <span className="text-sm text-muted-foreground">More</span>
-            </div>
+                </div>
+                <div className="flex items-center gap-2 mt-4">
+                  <span className="text-sm text-muted-foreground">Less</span>
+                  <div className="flex gap-1">
+                    <div className="w-3 h-3 rounded-sm bg-muted"></div>
+                    <div className="w-3 h-3 rounded-sm bg-green-200"></div>
+                    <div className="w-3 h-3 rounded-sm bg-green-400"></div>
+                    <div className="w-3 h-3 rounded-sm bg-green-600"></div>
+                  </div>
+                  <span className="text-sm text-muted-foreground">More</span>
+                </div>
+              </>
+            )}
           </div>
 
           {/* Recent Activity */}

@@ -67,32 +67,71 @@ export function ProgrammersStats() {
     );
   }
 
-  const monthlyData: MonthlyEntry[] = stat?.yearlyData
-    ? (() => {
-        try { return JSON.parse(stat.yearlyData); }
-        catch { return []; }
-      })()
-    : [];
+  const LEVEL_COLORS: Record<string, string> = {
+    "0": "bg-gray-400", "1": "bg-green-400", "2": "bg-blue-400",
+    "3": "bg-purple-500", "4": "bg-orange-500", "5": "bg-red-500",
+  };
 
-  const levelDistribution: LevelEntry[] = stat?.levelDistribution
-    ? (() => {
-        try { return JSON.parse(stat.levelDistribution); }
-        catch { return []; }
-      })()
-    : [
-        { level: "Lv.0", count: 0, color: "bg-gray-400" },
-        { level: "Lv.1", count: 0, color: "bg-green-400" },
-        { level: "Lv.2", count: 0, color: "bg-blue-400" },
-        { level: "Lv.3", count: 0, color: "bg-purple-500" },
-        { level: "Lv.4", count: 0, color: "bg-orange-500" },
-        { level: "Lv.5", count: 0, color: "bg-red-500" },
-      ];
+  // yearlyData: {"2026-01-15":2,"2026-01-16":1,...}
+  const yearlyMap: Record<string, number> = (() => {
+    if (!stat?.yearlyData) return {};
+    try { return JSON.parse(stat.yearlyData) as Record<string, number>; }
+    catch { return {}; }
+  })();
+  const hasYearlyData = Object.keys(yearlyMap).length > 0;
 
-  const grassGrid = stat?.yearlyData
-    ? null
-    : Array.from({ length: 52 }, (_, week) =>
-        Array.from({ length: 7 }, (_, day) => ({ week, day, count: 0 }))
-      );
+  // 월별 집계 → [{month:"25.12", solved:5},...]  key = "YYYY-MM" for correct cross-year ordering
+  const monthlyData: MonthlyEntry[] = (() => {
+    if (!hasYearlyData) return [];
+    const monthMap: Record<string, number> = {};
+    for (const [dateStr, count] of Object.entries(yearlyMap)) {
+      const key = dateStr.slice(0, 7); // "2025-12"
+      monthMap[key] = (monthMap[key] ?? 0) + count;
+    }
+    return Object.entries(monthMap)
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([key, solved]) => ({
+        month: key.slice(2, 4) + "." + key.slice(5, 7), // "2025-12" → "25.12"
+        solved,
+      }));
+  })();
+
+  // 연간 잔디 그리드 (52주×7일)
+  const grassGrid = (() => {
+    const today = new Date();
+    const startDate = new Date(today);
+    startDate.setDate(startDate.getDate() - 52 * 7 + 1);
+    return Array.from({ length: 52 }, (_, week) =>
+      Array.from({ length: 7 }, (_, day) => {
+        const d = new Date(startDate);
+        d.setDate(d.getDate() + week * 7 + day);
+        const dateStr = d.toISOString().slice(0, 10);
+        return { week, day, count: yearlyMap[dateStr] ?? 0 };
+      })
+    );
+  })();
+
+  // levelDistribution: {"1":5,"2":3,...} → [{level:"Lv.1",count:5,color:"..."},...]
+  const levelDistribution: LevelEntry[] = (() => {
+    if (!stat?.levelDistribution) {
+      return Object.entries(LEVEL_COLORS).map(([lvl, color]) => ({
+        level: `Lv.${lvl}`, count: 0, color,
+      }));
+    }
+    try {
+      const parsed = JSON.parse(stat.levelDistribution);
+      if (Array.isArray(parsed)) return parsed;
+      return Object.entries(parsed as Record<string, number>).map(([lvl, count]) => ({
+        level: `Lv.${lvl}`,
+        count,
+        color: LEVEL_COLORS[lvl] ?? "bg-gray-400",
+      }));
+    } catch {
+      return Object.entries(LEVEL_COLORS).map(([lvl, color]) => ({
+        level: `Lv.${lvl}`, count: 0, color,
+      }));
+    }
+  })();
 
   const getGrassColor = (count: number) => {
     if (count === 0) return "bg-muted";
@@ -192,56 +231,68 @@ export function ProgrammersStats() {
           )}
 
           {/* Grass (Contribution Grid) */}
-          {grassGrid && (
-            <div className="bg-card rounded-lg border border-border p-6">
-              <h3 className="mb-4">연간 잔디 (풀이 기록)</h3>
-              <div className="overflow-x-auto">
-                <div className="inline-flex gap-1">
-                  {grassGrid.map((week, weekIndex) => (
-                    <div key={weekIndex} className="flex flex-col gap-1">
-                      {week.map((day) => (
-                        <div
-                          key={`${day.week}-${day.day}`}
-                          className={`w-3 h-3 rounded-sm ${getGrassColor(day.count)}`}
-                          title={`${day.count} problems solved`}
-                        ></div>
-                      ))}
-                    </div>
-                  ))}
-                </div>
+          <div className="bg-card rounded-lg border border-border p-6">
+            <h3 className="mb-4">연간 잔디 (풀이 기록)</h3>
+            {!hasYearlyData ? (
+              <div className="flex items-center justify-center h-[120px] text-muted-foreground text-sm">
+                동기화 후 데이터가 표시됩니다
               </div>
-              <div className="flex items-center gap-2 mt-4">
-                <span className="text-sm text-muted-foreground">Less</span>
-                <div className="flex gap-1">
-                  <div className="w-3 h-3 rounded-sm bg-muted"></div>
-                  <div className="w-3 h-3 rounded-sm bg-blue-200"></div>
-                  <div className="w-3 h-3 rounded-sm bg-blue-400"></div>
-                  <div className="w-3 h-3 rounded-sm bg-blue-600"></div>
+            ) : (
+              <>
+                <div className="overflow-x-auto">
+                  <div className="inline-flex gap-1">
+                    {grassGrid.map((week, weekIndex) => (
+                      <div key={weekIndex} className="flex flex-col gap-1">
+                        {week.map((day) => (
+                          <div
+                            key={`${day.week}-${day.day}`}
+                            className={`w-3 h-3 rounded-sm ${getGrassColor(day.count)}`}
+                            title={`${day.count} problems solved`}
+                          ></div>
+                        ))}
+                      </div>
+                    ))}
+                  </div>
                 </div>
-                <span className="text-sm text-muted-foreground">More</span>
-              </div>
-            </div>
-          )}
+                <div className="flex items-center gap-2 mt-4">
+                  <span className="text-sm text-muted-foreground">Less</span>
+                  <div className="flex gap-1">
+                    <div className="w-3 h-3 rounded-sm bg-muted"></div>
+                    <div className="w-3 h-3 rounded-sm bg-blue-200"></div>
+                    <div className="w-3 h-3 rounded-sm bg-blue-400"></div>
+                    <div className="w-3 h-3 rounded-sm bg-blue-600"></div>
+                  </div>
+                  <span className="text-sm text-muted-foreground">More</span>
+                </div>
+              </>
+            )}
+          </div>
 
           {/* Level Distribution */}
           <div className="bg-card rounded-lg border border-border p-6">
             <h3 className="mb-4">레벨별 분포</h3>
-            <div className="space-y-3">
-              {levelDistribution.map((level) => (
-                <div key={level.level}>
-                  <div className="flex items-center justify-between mb-2">
-                    <span className="font-medium">{level.level}</span>
-                    <span className="text-sm text-muted-foreground">{level.count}문제</span>
+            {!levelDistribution.some((e) => e.count > 0) ? (
+              <div className="flex items-center justify-center h-[120px] text-muted-foreground text-sm">
+                동기화 후 데이터가 표시됩니다
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {levelDistribution.map((level) => (
+                  <div key={level.level}>
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="font-medium">{level.level}</span>
+                      <span className="text-sm text-muted-foreground">{level.count}문제</span>
+                    </div>
+                    <div className="w-full bg-muted rounded-full h-3">
+                      <div
+                        className={`${level.color} h-3 rounded-full transition-all`}
+                        style={{ width: totalSolved > 0 ? `${(level.count / totalSolved) * 100}%` : "0%" }}
+                      ></div>
+                    </div>
                   </div>
-                  <div className="w-full bg-muted rounded-full h-3">
-                    <div
-                      className={`${level.color} h-3 rounded-full transition-all`}
-                      style={{ width: totalSolved > 0 ? `${(level.count / totalSolved) * 100}%` : "0%" }}
-                    ></div>
-                  </div>
-                </div>
-              ))}
-            </div>
+                ))}
+              </div>
+            )}
           </div>
 
         </>
