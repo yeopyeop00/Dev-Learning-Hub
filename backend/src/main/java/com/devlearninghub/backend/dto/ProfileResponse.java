@@ -9,11 +9,15 @@ public class ProfileResponse {
     private String email;
     private String nickname;
     private String profileImagePath;
+    private String githubUsername;
+    private String programmersRepo;
 
     public ProfileResponse(User user) {
         this.id = user.getId();
         this.email = user.getEmail();
         this.nickname = user.getNickname();
         this.profileImagePath = user.getProfileImagePath();
+        this.githubUsername = user.getGithubUsername();
+        this.programmersRepo = user.getProgrammersRepo();
     }
 }

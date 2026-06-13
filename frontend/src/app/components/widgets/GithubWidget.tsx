@@ -1,18 +1,16 @@
 import { useEffect, useState } from "react";
 import { Github, Settings } from "lucide-react";
-import { getGithubStat, type GithubStatResponse } from "../../../api";
-
-interface ActivityEntry { repo: string; commits: number; branch: string; lastCommit: string; time: string; }
+import { getGithubActivity, type ActivityLogEntry } from "../../../api";
 
 export function GithubWidget({ hasGithubConfig }: { hasGithubConfig: boolean }) {
-  const [stat, setStat] = useState<GithubStatResponse | null>(null);
+  const [entries, setEntries] = useState<ActivityLogEntry[]>([]);
   const [isLoading, setIsLoading] = useState(false);
 
   useEffect(() => {
     if (!hasGithubConfig) return;
     setIsLoading(true);
-    getGithubStat()
-      .then(setStat)
+    getGithubActivity()
+      .then(setEntries)
       .catch(console.error)
       .finally(() => setIsLoading(false));
   }, [hasGithubConfig]);
@@ -31,10 +29,6 @@ export function GithubWidget({ hasGithubConfig }: { hasGithubConfig: boolean }) 
     );
   }
 
-  const recentActivity: ActivityEntry[] = stat?.recentActivities
-    ? (() => { try { return JSON.parse(stat.recentActivities); } catch { return []; } })()
-    : [];
-
   return (
     <div className="bg-card rounded-lg border border-border p-6">
       <div className="flex items-center gap-2 mb-4">
@@ -43,19 +37,16 @@ export function GithubWidget({ hasGithubConfig }: { hasGithubConfig: boolean }) 
       </div>
       {isLoading ? (
         <p className="text-sm text-muted-foreground">불러오는 중...</p>
-      ) : recentActivity.length === 0 ? (
+      ) : entries.length === 0 ? (
         <p className="text-sm text-muted-foreground">최근 활동이 없습니다. 동기화를 실행해주세요.</p>
       ) : (
-        <div className="space-y-3">
-          {recentActivity.map((activity, index) => (
-            <div key={index} className="flex items-center gap-4 p-3 bg-accent rounded-lg">
-              <div className="flex-1">
-                <div className="font-medium">{activity.repo}</div>
-                <div className="text-sm text-muted-foreground">{activity.lastCommit}</div>
-              </div>
-              <div className="bg-green-500/10 text-green-600 px-3 py-1 rounded-full text-sm">
-                {activity.commits} commits
-              </div>
+        <div className="space-y-2">
+          {entries.map((entry, index) => (
+            <div key={index} className="flex items-start justify-between gap-3 p-3 bg-accent rounded-lg">
+              <p className="text-sm font-medium flex-1 truncate">{entry.message}</p>
+              <span className="text-xs text-muted-foreground whitespace-nowrap">
+                {entry.date?.replace(/-/g, ".")}
+              </span>
             </div>
           ))}
         </div>

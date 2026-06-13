@@ -24,4 +24,9 @@ public class ActivityLog {
     private LocalDate date;
     private int commitCount;
     private int solvedCount;
+
+    @Column(columnDefinition = "TEXT")
+    private String message;
+
+    private String source; // "GITHUB" or "PROGRAMMERS"
 }

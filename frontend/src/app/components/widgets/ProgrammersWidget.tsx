@@ -1,8 +1,6 @@
 import { useEffect, useState } from "react";
 import { Code2, Settings } from "lucide-react";
-import { getProgrammersStat, type ProgrammersStatResponse } from "../../../api";
-
-interface LevelEntry { level: string; count: number; color: string; }
+import { getProgrammersActivity, type ActivityLogEntry } from "../../../api";
 
 function getLevelColor(level: string) {
   switch (level) {
@@ -16,15 +14,24 @@ function getLevelColor(level: string) {
   }
 }
 
+function parseProblem(message: string): { name: string; level: string } {
+  const levelMatch = message.match(/\[level (\d+)\]/i);
+  const nameMatch = message.match(/Title:\s*([^,]+)/);
+  return {
+    name: nameMatch ? nameMatch[1].trim() : message,
+    level: levelMatch ? `Lv.${levelMatch[1]}` : "Lv.?",
+  };
+}
+
 export function ProgrammersWidget({ hasGithubConfig }: { hasGithubConfig: boolean }) {
-  const [stat, setStat] = useState<ProgrammersStatResponse | null>(null);
+  const [entries, setEntries] = useState<ActivityLogEntry[]>([]);
   const [isLoading, setIsLoading] = useState(false);
 
   useEffect(() => {
     if (!hasGithubConfig) return;
     setIsLoading(true);
-    getProgrammersStat()
-      .then(setStat)
+    getProgrammersActivity()
+      .then(setEntries)
       .catch(console.error)
       .finally(() => setIsLoading(false));
   }, [hasGithubConfig]);
@@ -43,12 +50,6 @@ export function ProgrammersWidget({ hasGithubConfig }: { hasGithubConfig: boolea
     );
   }
 
-  const levelDistribution: LevelEntry[] = stat?.levelDistribution
-    ? (() => { try { return JSON.parse(stat.levelDistribution); } catch { return []; } })()
-    : [];
-
-  const activeLevels = levelDistribution.filter((l) => l.count > 0);
-
   return (
     <div className="bg-card rounded-lg border border-border p-6">
       <div className="flex items-center gap-2 mb-4">
@@ -57,20 +58,21 @@ export function ProgrammersWidget({ hasGithubConfig }: { hasGithubConfig: boolea
       </div>
       {isLoading ? (
         <p className="text-sm text-muted-foreground">불러오는 중...</p>
-      ) : activeLevels.length === 0 ? (
+      ) : entries.length === 0 ? (
         <p className="text-sm text-muted-foreground">풀이 기록이 없습니다. 동기화를 실행해주세요.</p>
       ) : (
-        <div className="space-y-3">
-          {activeLevels.map((level, index) => (
-            <div key={index} className="flex items-center gap-4 p-3 bg-accent rounded-lg">
-              <div className="flex-1">
-                <div className="font-medium">{level.count}문제 해결</div>
+        <div className="space-y-2">
+          {entries.map((entry, index) => {
+            const { name, level } = parseProblem(entry.message ?? "");
+            return (
+              <div key={index} className="flex items-center justify-between gap-3 p-3 bg-accent rounded-lg">
+                <p className="text-sm font-medium flex-1 truncate">{name}</p>
+                <div className={`px-3 py-1 rounded-full text-xs whitespace-nowrap ${getLevelColor(level)}`}>
+                  {level}
+                </div>
               </div>
-              <div className={`px-3 py-1 rounded-full text-sm ${getLevelColor(level.level)}`}>
-                {level.level}
-              </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
     </div>

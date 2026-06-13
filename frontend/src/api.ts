@@ -171,7 +171,22 @@ export async function syncAll() {
   });
 }
 
+export async function getGithubActivity() {
+  const userId = getUserId();
+  return request<ActivityLogEntry[]>(`/api/github/activity?userId=${userId}`);
+}
+
+export async function getProgrammersActivity() {
+  const userId = getUserId();
+  return request<ActivityLogEntry[]>(`/api/github/programmers/activity?userId=${userId}`);
+}
+
 // Response types
+
+export interface ActivityLogEntry {
+  message: string;
+  date: string;
+}
 
 export interface TodoSummaryResponse {
   total: number;
@@ -210,6 +225,8 @@ export interface ProfileResponse {
   email: string;
   nickname: string | null;
   profileImagePath: string | null;
+  githubUsername: string | null;
+  programmersRepo: string | null;
 }
 
 export interface GithubStatResponse {

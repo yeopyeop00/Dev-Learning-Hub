@@ -49,6 +49,10 @@ export function Layout() {
           nickname: p.nickname ?? "사용자",
           avatarUrl: p.profileImagePath ?? localStorage.getItem("profileImage"),
         });
+        if (p.githubUsername && p.programmersRepo) {
+          setGithubConfig({ username: p.githubUsername, programmersRepo: p.programmersRepo });
+          setSettingsForm({ username: p.githubUsername, programmersRepo: p.programmersRepo });
+        }
       })
       .catch(console.error);
   }, [isLoggedIn]);
@@ -130,8 +134,10 @@ export function Layout() {
       await setupGithub(settingsForm.username.trim(), settingsForm.programmersRepo.trim());
       setGithubConfig({ username: settingsForm.username.trim(), programmersRepo: settingsForm.programmersRepo.trim() });
       setShowGithubSettings(false);
+      alert("GitHub 계정이 설정되었습니다.");
     } catch (err) {
       console.error(err);
+      alert("설정에 실패했습니다. 다시 시도해주세요.");
     }
   };
 
