@@ -4,10 +4,12 @@ import { getTodaySchedule, type TimetableResponse } from "../../../api";
 
 function formatTimeRange(startTime: string, duration: number): string {
   const [h, m] = startTime.split(":").map(Number);
-  const endTotal = h * 60 + m + duration;
-  const endH = Math.floor(endTotal / 60);
-  const endM = endTotal % 60;
-  return `${startTime} - ${String(endH).padStart(2, "0")}:${String(endM).padStart(2, "0")}`;
+  const startMinutes = h * 60 + m;
+  const endMinutes = startMinutes + duration * 60;
+  const endH = Math.floor(endMinutes / 60) % 24;
+  const endM = endMinutes % 60;
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${startTime} - ${pad(endH)}:${pad(endM)}`;
 }
 
 export function TodaySchedule() {
